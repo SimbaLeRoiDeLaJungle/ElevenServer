@@ -18,5 +18,7 @@ namespace GameServer
         public const string DATABASE_PASSWORD = "YoloLeGrand";
 
         public const string STRING_LINE = "--------------------";
+
+        public const string APP_PATH = "C:\\Users\\mathi\\source\\repos\\ElevenServer";
      }
 }

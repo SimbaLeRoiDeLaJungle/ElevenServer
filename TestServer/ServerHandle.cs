@@ -70,14 +70,22 @@ namespace GameServer
         public static void AddCard(int _fromClient, Packet _packet)
         {
             bool isTheLastCard = false;
-            while(!isTheLastCard)
+            int serie_id=0;
+            int db_id = Server.clients[_fromClient].db_id;
+            while (!isTheLastCard)
             {
                 int card_id = _packet.ReadInt();
                 
-                int serie_id = _packet.ReadInt();
+                serie_id = _packet.ReadInt();
                 isTheLastCard = _packet.ReadBool();
-                Console.WriteLine($"id : {card_id}, serid : {serie_id}, last :{isTheLastCard}");
-                DBManager.AddUserCard(Server.clients[_fromClient].db_id, card_id, serie_id);
+
+                DBManager.AddUserCard(db_id, card_id, serie_id);
+            }
+
+            bool inBooster = _packet.ReadBool();
+            if(inBooster)
+            {
+                DBManager.UserOpenABooster(db_id, serie_id);
             }
 
         }

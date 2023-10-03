@@ -39,7 +39,6 @@ namespace GameServer
             {
                 while (rdr.Read())
                 {
-                    Console.WriteLine(rdr[0] + " -- ");
                     if ((string)rdr[0] == username)
                     {
                         rdr.Close();
@@ -100,16 +99,13 @@ namespace GameServer
                 if (rdr.Read())
                 {
                     count = rdr.GetInt32(0);
-                    Console.WriteLine($"count {count}");
                     count += 1;
-                    Console.WriteLine($"count+1 {count}");
                     allreadyHaveField = true;
                 }
                 rdr.Close();
                 if(allreadyHaveField)
                 {
                     sql = string.Format("UPDATE cards SET count = {0} WHERE user_id = {1} AND card_id = {2} AND serie_id = {3}", count, db_id, card_id, serie_id);
-                    Console.WriteLine(sql);
                     MySqlCommand createCmd = conn.CreateCommand();
                     createCmd.CommandText = sql;
                     createCmd.ExecuteNonQuery();
@@ -117,7 +113,6 @@ namespace GameServer
                 else
                 {
                     sql = string.Format("INSERT INTO cards(user_id, count, card_id, serie_id) VALUES({0},{1},{2},{3})",db_id, count,card_id,serie_id);
-                    Console.WriteLine(sql);
                     MySqlCommand createCmd = conn.CreateCommand();
                     createCmd.CommandText = sql;
                     createCmd.ExecuteNonQuery();
@@ -152,7 +147,110 @@ namespace GameServer
                 Console.WriteLine(ex);
                 return new List<CardData>();
             }
-    }
+        }
+
+        public static bool SetupDeckLoader(DeckLoader _deckLoader)
+        {
+            if(_deckLoader.ById)
+            {
+                string sql = string.Format("SELECT deck_id,user_id,deck_name FROM cards WHERE user_id = {0}, deck_id = {1} ", _deckLoader.DbID, _deckLoader.DeckID);
+                MySqlConnection conn = GetConnection();
+                MySqlCommand cmd = new MySqlCommand(sql, conn);
+                MySqlDataReader rdr = cmd.ExecuteReader();
+                try
+                {
+                    if (rdr.Read())
+                    {
+                        _deckLoader.DeckName = rdr.GetString(2);
+                        return true;
+                    }
+
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                }
+                finally
+                { 
+                    rdr.Close(); 
+                }
+            }
+            else if(_deckLoader.ByName)
+            {
+                string sql = string.Format("SELECT deck_id,user_id,deck_name FROM cards WHERE user_id = {0}, deck_name = '{1}' ", _deckLoader.DbID, _deckLoader.DeckName);
+                MySqlConnection conn = GetConnection();
+                MySqlCommand cmd = new MySqlCommand(sql, conn);
+                MySqlDataReader rdr = cmd.ExecuteReader();
+                try
+                {
+                    if (rdr.Read())
+                    {
+                        _deckLoader.DeckID = rdr.GetInt32(0);
+                        return true;
+                    }
+
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                }
+                finally
+                {
+                    rdr.Close();
+                }
+            }
+            return false;
+
+        }
+
+        public static void UserOpenABooster(int db_id, int serie_id)
+        {
+            string sql = string.Format("SELECT booster_count FROM user_serie_data WHERE user_id = {0} AND serie_id = '{1}' ", db_id, serie_id);
+            MySqlConnection conn = GetConnection();
+            MySqlCommand cmd = new MySqlCommand(sql, conn);
+            MySqlDataReader rdr = cmd.ExecuteReader();
+            bool lineExist = false;
+            int booster_count = 0;
+            try
+            {
+                if (rdr.Read())
+                {
+                    booster_count = rdr.GetInt32(0);
+                    booster_count++;
+                    lineExist = true;
+                }
+                rdr.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
+            finally
+            {
+                rdr.Close();
+            }
+
+            if (lineExist)
+            {
+                sql = string.Format("UPDATE user_serie_data SET booster_count = {0} WHERE user_id = {1} AND serie_id = {2}", booster_count, db_id, serie_id);
+
+            }
+            else
+            {
+                sql = string.Format("INSERT INTO user_serie_data(user_id, serie_id, booster_count) VALUES({0},{1},{2})", db_id, serie_id, 1);
+            }
+
+            try
+            {
+                MySqlCommand createCmd = conn.CreateCommand();
+                createCmd.CommandText = sql;
+                createCmd.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
+        }
     }
 
 
