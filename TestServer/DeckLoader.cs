@@ -87,15 +87,8 @@ namespace GameServer
             {
                 outputFile.WriteLine($"{DeckName}");
                 foreach (CardAndCount card in cards)
-                    outputFile.WriteLine($"{card.serieId},{card.cardId},{card.count}");
+                    outputFile.WriteLine($"{card.serie_id},{card.card_id},{card.count}");
             }
-        }
-
-        public struct CardAndCount
-        {
-            public int cardId;
-            public int serieId;
-            public int count;
         }
     }
 }

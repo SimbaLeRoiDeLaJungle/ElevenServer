@@ -70,7 +70,9 @@ namespace GameServer
                 { (int)ClientPackets.createUserRequest, ServerHandle.CreateUserReceive},
                 { (int)ClientPackets.loginRequest, ServerHandle.ConnectUser },
                 { (int)ClientPackets.addCard, ServerHandle.AddCard },
-                { (int)ClientPackets.updateCollectionRequest, ServerHandle.UpdateCollectionRequest }
+                { (int)ClientPackets.updateCollectionRequest, ServerHandle.UpdateCollectionRequest },
+                { (int)ClientPackets.createTrade, ServerHandle.CreateTradeRequest },
+                { (int)ClientPackets.requestTradeData, ServerHandle.UpdateTradeList }
             };
             Console.WriteLine("Initialized packets.");
         }

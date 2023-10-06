@@ -10,7 +10,8 @@ namespace GameServer
         welcome = 1,
         createUserResponse = 2,
         loginResponse = 3,
-        updateCollection = 4
+        updateCollection = 4,
+        updateTradeData = 5,
     }
 
     /// <summary>Sent from client to server.</summary>
@@ -20,7 +21,9 @@ namespace GameServer
         createUserRequest = 2,
         loginRequest = 3,
         addCard = 4,
-        updateCollectionRequest = 5
+        updateCollectionRequest = 5,
+        createTrade = 6,
+        requestTradeData = 7
     }
 
 

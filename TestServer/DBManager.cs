@@ -2,10 +2,12 @@
 using MySqlX.XDevAPI.Common;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Web.Helpers;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 namespace GameServer
 {
@@ -57,13 +59,14 @@ namespace GameServer
                 Console.WriteLine(ex);
             }
             rdr.Close();
+            conn.Close();
             return false;
 
         }
 
         public static int CheckPassword(string username, string password)
         {
-            string sql = string.Format("SELECT id FROM users WHERE username = '{0}' ",username,password);
+            string sql = string.Format("SELECT id FROM users WHERE username = '{0}' AND password = SHA({1}) ",username, password);
             MySqlConnection conn = GetConnection();
             MySqlCommand cmd = new MySqlCommand(sql, conn);
             MySqlDataReader rdr = cmd.ExecuteReader();
@@ -75,6 +78,7 @@ namespace GameServer
                     id = (int)rdr[0];
                 }
                 rdr.Close();
+                conn.Close();
                 return id;
             }
             catch (Exception ex) 
@@ -82,6 +86,7 @@ namespace GameServer
                 Console.WriteLine(ex);
             }
             rdr.Close();
+            conn.Close();
             return -1;
         }
 
@@ -123,30 +128,67 @@ namespace GameServer
             {
                 Console.WriteLine(ex);
             }
+            finally
+            {
+                conn.Close();
+            }
 
         }
-        public static List<CardData> GetCollection(int db_id)
+        public static List<CardAndCount> GetCollection(int db_id)
         {
-            string sql = string.Format("SELECT card_id,serie_id,count FROM cards WHERE user_id = '{0}' ", db_id);
+            string sql = string.Format("SELECT serie_id,card_id,count,in_trade FROM cards WHERE user_id = '{0}' ", db_id);
             MySqlConnection conn = GetConnection();
             MySqlCommand cmd = new MySqlCommand(sql, conn);
             MySqlDataReader rdr = cmd.ExecuteReader();
             try
             {
-                List<CardData> result = new List<CardData>();
+                List<CardAndCount> result = new List<CardAndCount>();
                 while (rdr.Read())
                 {
-                    result.Add(new CardData(rdr.GetInt32(0), rdr.GetInt32(1), rdr.GetInt32(2)));
+                    result.Add(new CardAndCount(rdr.GetInt32(0), rdr.GetInt32(1), rdr.GetInt32(2), rdr.GetInt32(3)));
                 }
                 rdr.Close();
+                conn.Close();
                 return result;
             }
             catch(Exception ex)
             {
                 rdr.Close();
+                conn.Close();
                 Console.WriteLine(ex);
-                return new List<CardData>();
+                return new List<CardAndCount>();
             }
+        }
+
+        public static UserData GetUserData(int db_id)
+        {
+            string sql = string.Format("SELECT username,email,cash FROM users WHERE id = '{0}' ", db_id);
+            MySqlConnection conn = GetConnection();
+            MySqlCommand cmd = new MySqlCommand(sql, conn);
+            MySqlDataReader rdr = cmd.ExecuteReader();
+            try
+            {
+                if (!rdr.Read())
+                {
+                    return null;
+                }
+
+                string username = rdr.GetString(0);
+                string email = rdr.GetString(1);
+                int cash = rdr.GetInt32(2);
+                
+                rdr.Close();
+                conn.Close();
+                return new UserData(username, email, db_id, cash);
+            }
+            catch (Exception ex)
+            {
+                rdr.Close();
+                conn.Close();
+                Console.WriteLine(ex);
+                return null;
+            }
+
         }
 
         public static bool SetupDeckLoader(DeckLoader _deckLoader)
@@ -186,6 +228,8 @@ namespace GameServer
                     if (rdr.Read())
                     {
                         _deckLoader.DeckID = rdr.GetInt32(0);
+                        conn.Close();
+                        rdr.Close();
                         return true;
                     }
 
@@ -196,6 +240,7 @@ namespace GameServer
                 }
                 finally
                 {
+                    conn.Close();
                     rdr.Close();
                 }
             }
@@ -250,6 +295,85 @@ namespace GameServer
             {
                 Console.WriteLine(ex);
             }
+
+            conn.Close();
+            rdr.Close();
+        }
+
+        public static Trade CreateNewTrade(int user_db_id)
+        {
+            string sql = string.Format("INSERT INTO trade(user_id) VALUES({0})",user_db_id);
+            MySqlConnection conn = GetConnection();
+            MySqlCommand cmd = new MySqlCommand(sql, conn);
+            MySqlDataReader rdr = cmd.ExecuteReader();
+            long id = cmd.LastInsertedId;
+            Trade trade = new Trade((int)id);
+            conn.Close();
+            rdr.Close();
+            return trade;
+        }
+
+        public static List<Trade> GetTradeFrom(DateTime beginTime, DateTime endTime)
+        {
+            List<Trade> result = new List<Trade>();
+            string sql = string.Format("SELECT trade_id,post_date FROM trade WHERE post_date > '{0}' OR post_date < '{1}' ORDER BY post_date DESC", beginTime.ToString("yyyy-MM-dd HH:mm:ss.fff"), endTime.ToString("yyyy-MM-dd HH:mm:ss.fff") );
+            Console.WriteLine(sql);
+            MySqlConnection conn = GetConnection();
+            MySqlCommand cmd = new MySqlCommand(sql, conn);
+            MySqlDataReader rdr = cmd.ExecuteReader();
+            int maxSize = 20;
+            while(rdr.Read())
+            {
+                int trade_id = rdr.GetInt32(0);
+                Trade trade = new Trade(trade_id);
+                trade.postDate = rdr.GetDateTime(1);
+                if (trade.Load())
+                {
+                    result.Add(trade);
+                    if (result.Count >= maxSize)
+                    {
+                        break;
+                    }
+                }
+
+            }
+            conn.Close();
+            rdr.Close();
+            return result;
+        }
+
+        public static bool LockUserCardForTrade(int user_db_id, List<CardAndCount> cards)
+        {
+            foreach(CardAndCount c in cards) 
+            {
+                string sql = string.Format("SELECT in_trade, count FROM cards WHERE user_id = {0} AND card_id = {1} AND serie_id = {2}", user_db_id, c.card_id, c.serie_id);
+                MySqlConnection conn = GetConnection();
+                MySqlCommand cmd = new MySqlCommand(sql, conn);
+                MySqlDataReader rdr = cmd.ExecuteReader();
+                
+                if (!rdr.Read())
+                    return false;
+
+
+                int in_trade = rdr.GetInt32(0);
+                int count = rdr.GetInt32(1);
+
+                if(count-in_trade-c.count < 0)
+                {
+                    return false;
+                }
+                in_trade += c.count;
+                
+                rdr.Close();
+                conn.Close();
+
+                MySqlCommand createCmd = conn.CreateCommand();
+                createCmd.CommandText = string.Format("UPDATE cards SET in_trade={3} WHERE user_id = {0} AND card_id = {1} AND serie_id = {2}", user_db_id, c.card_id, c.serie_id, in_trade);
+                createCmd.ExecuteNonQuery();
+            }
+
+            return true;
+
         }
     }
 
