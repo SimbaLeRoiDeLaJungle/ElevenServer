@@ -365,11 +365,13 @@ namespace GameServer
                 in_trade += c.count;
                 
                 rdr.Close();
-                conn.Close();
+                
 
                 MySqlCommand createCmd = conn.CreateCommand();
                 createCmd.CommandText = string.Format("UPDATE cards SET in_trade={3} WHERE user_id = {0} AND card_id = {1} AND serie_id = {2}", user_db_id, c.card_id, c.serie_id, in_trade);
                 createCmd.ExecuteNonQuery();
+
+                conn.Close();
             }
 
             return true;
